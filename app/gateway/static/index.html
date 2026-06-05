@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishShield | Plateforme de détection Phishing</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Style personnalisé -->
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Système de notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Écran de connexion (Glassmorphism) -->
+    <div id="login-container" class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fa-solid fa-shield-halved brand-logo"></i>
+                <h2>PhishShield</h2>
+                <p>Plateforme distribuée de détection de phishing</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username"><i class="fa-solid fa-user"></i> Nom d'utilisateur</label>
+                    <input type="text" id="username" required placeholder="ex: analyst, admin">
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Mot de passe</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    Se connecter <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+            <div class="login-footer">
+                <p><i class="fa-solid fa-info-circle"></i> Utilisateurs démo : <strong>admin</strong> (admin123) / <strong>analyst</strong> (analyst123)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau de bord Principal -->
+    <div id="app-container" class="app-layout hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <span class="logo-text">PhishShield</span>
+            </div>
+            
+            <div class="user-profile-widget">
+                <div class="avatar">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div class="user-details">
+                    <h4 id="user-display-name">Utilisateur</h4>
+                    <span id="user-display-role" class="badge-role">Analyste</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="dashboard-tab">
+                    <i class="fa-solid fa-chart-pie"></i> Vue d'ensemble
+                </button>
+                <button class="nav-item" data-tab="submission-tab">
+                    <i class="fa-solid fa-envelope-open-text"></i> Analyser un e-mail
+                </button>
+                <button class="nav-item" data-tab="history-tab">
+                    <i class="fa-solid fa-list-check"></i> Historique
+                </button>
+                <button id="nav-audit-logs" class="nav-item admin-only hidden" data-tab="audit-tab">
+                    <i class="fa-solid fa-receipt"></i> Journaux d'audit
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="btn-logout" class="btn-logout-link">
+                    <i class="fa-solid fa-right-from-bracket"></i> Se déconnecter
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="content-header">
+                <div class="header-left">
+                    <h1 id="tab-title">Vue d'ensemble</h1>
+                    <p id="tab-subtitle">Tableau de bord de qualification et de monitoring</p>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator">
+                        <span class="dot pulse green"></span> Services connectés
+                    </div>
+                </div>
+            </header>
+
+            <!-- TABS CONTENT -->
+            <div class="tab-panels">
+                
+                <!-- 1. Vue d'ensemble -->
+                <div id="dashboard-tab" class="tab-panel active">
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-blue"><i class="fa-solid fa-envelope"></i></div>
+                            <div class="stat-content">
+                                <h3>Total Signalements</h3>
+                                <p id="stat-total" class="stat-number">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon bg-red"><i class="fa-solid fa-circle-exclamation"></i></div>
+                            <div class="stat-content">
+                                <h3>Risque Élevé</h3>
+                                <p id="stat-high" class="stat-number">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon bg-yellow"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="stat-content">
+                                <h3>Risque Moyen</h3>
+                                <p id="stat-medium" class="stat-number">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon bg-green"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="stat-content">
+                                <h3>Risque Faible</h3>
+                                <p id="stat-low" class="stat-number">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Health Check and Charts Section -->
+                    <div class="grid-2col mt-4">
+                        <!-- Systèmes de services -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-server"></i> État des services de la plateforme</h3>
+                            </div>
+                            <div class="panel-body">
+                                <ul class="service-list">
+                                    <li>
+                                        <span>API Gateway / SubmissionService</span>
+                                        <span id="health-gateway" class="badge badge-success">En ligne</span>
+                                    </li>
+                                    <li>
+                                        <span>AuthService (Authentification)</span>
+                                        <span id="health-auth" class="badge badge-success">En ligne</span>
+                                    </li>
+                                    <li>
+                                        <span>AnalysisService (gRPC Scoring)</span>
+                                        <span id="health-analysis" class="badge badge-success">En ligne</span>
+                                    </li>
+                                    <li>
+                                        <span>AuditService (Logs de sécurité)</span>
+                                        <span id="health-audit" class="badge badge-success">En ligne</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Dernières détections -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-bell"></i> Alertes Phishing Récentes</h3>
+                            </div>
+                            <div class="panel-body">
+                                <div id="dashboard-recent-alerts" class="recent-alerts-list">
+                                    <!-- Inséré par JS -->
+                                    <p class="empty-state">Aucun signalement suspect disponible.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Formulaire de soumission -->
+                <div id="submission-tab" class="tab-panel">
+                    <div class="grid-2col">
+                        <!-- Formulaire -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-file-shield"></i> Soumettre un e-mail suspect</h3>
+                            </div>
+                            <div class="panel-body">
+                                <form id="submission-form">
+                                    <div class="form-group">
+                                        <label for="sender-input">Expéditeur déclaré (From)</label>
+                                        <input type="text" id="sender-input" required placeholder="ex: support-security@paypal.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="subject-input">Objet de l'e-mail</label>
+                                        <input type="text" id="subject-input" required placeholder="ex: Urgent : Action requise sur votre compte">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="urls-input">Liens détectés (URLs, une par ligne)</label>
+                                        <textarea id="urls-input" rows="3" placeholder="ex: http://192.168.1.100/login&#10;https://verification-portal-paypal.com"></textarea>
+                                    </div>
+                                    <div class="form-group row-checkbox">
+                                        <input type="checkbox" id="attachment-input">
+                                        <label for="attachment-input">Présence de pièces jointes suspectes</label>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="content-input">Contenu textuel ou extrait</label>
+                                        <textarea id="content-input" rows="8" required placeholder="Collez le texte brut de l'e-mail ici..."></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fa-solid fa-magnifying-glass"></i> Lancer l'analyse distribuée
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Résultat de l'analyse (Dynamic card style) -->
+                        <div class="panel bg-dark-panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-square-poll-vertical"></i> Résultat instantané</h3>
+                            </div>
+                            <div class="panel-body flex-column">
+                                <div id="analysis-result-placeholder" class="analysis-placeholder">
+                                    <i class="fa-solid fa-shield-halved pulse-icon"></i>
+                                    <p>Prêt à analyser votre premier e-mail.</p>
+                                </div>
+                                <div id="analysis-result-card" class="result-card hidden">
+                                    <div class="result-score-gauge">
+                                        <span id="result-score" class="score-display">0</span>
+                                        <span class="score-total">/100</span>
+                                        <div id="result-badge" class="result-risk-badge">FAIBLE</div>
+                                    </div>
+                                    
+                                    <div class="result-details mt-4">
+                                        <h4><i class="fa-solid fa-magnifying-glass-chart"></i> Indicateurs de phishing détectés :</h4>
+                                        <ul id="result-justifications" class="justifications-list">
+                                            <!-- Rempli par JS -->
+                                        </ul>
+                                    </div>
+                                    
+                                    <div id="fallback-alert" class="fallback-note hidden">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Mode Secours Activé (Analyse locale)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Historique -->
+                <div id="history-tab" class="tab-panel">
+                    <div class="panel">
+                        <div class="panel-header search-bar-container">
+                            <h3><i class="fa-solid fa-folder-open"></i> Historique des signalements</h3>
+                            <div class="filters-row">
+                                <input type="text" id="search-keyword" placeholder="Rechercher par mot-clé, expéditeur...">
+                                <select id="filter-risk">
+                                    <option value="">Tous les risques</option>
+                                    <option value="FAIBLE">Faible</option>
+                                    <option value="MOYEN">Moyen</option>
+                                    <option value="ÉLEVÉ">Élevé</option>
+                                </select>
+                                <button id="btn-apply-filters" class="btn btn-secondary"><i class="fa-solid fa-filter"></i> Filtrer</button>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Expéditeur</th>
+                                            <th>Objet</th>
+                                            <th>Risque</th>
+                                            <th>Score</th>
+                                            <th>Soumis par</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-table-body">
+                                        <!-- Inséré par JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Journaux d'audit (Admin uniquement) -->
+                <div id="audit-tab" class="tab-panel">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-receipt"></i> Journaux d'audit de sécurité (AuditService)</h3>
+                            <button id="btn-refresh-audit" class="btn btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Rafraîchir</button>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-responsive">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Horodatage</th>
+                                            <th>Service</th>
+                                            <th>Événement</th>
+                                            <th>Niveau</th>
+                                            <th>Message</th>
+                                            <th>Utilisateur</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="audit-table-body">
+                                        <!-- Inséré par JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal pour le détail d'un signalement -->
+    <div id="detail-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-envelope-open"></i> Détails du Signalement</h3>
+                <button class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="modal-content">
+                <!-- Rempli par JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Script principal -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

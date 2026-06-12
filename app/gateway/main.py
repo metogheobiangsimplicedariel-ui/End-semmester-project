@@ -58,6 +58,10 @@ class UserLogin(BaseModel):
     username: str = Field(..., max_length=50)
     password: str = Field(..., max_length=100)
 
+class UserRegister(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=100)
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -151,6 +155,27 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Échec de connexion"))
     except requests.exceptions.RequestException as e:
         logger.error(f"AuthService unavailable: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le service d'authentification est actuellement inaccessible."
+        )
+
+@app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
+async def register_user(user: UserRegister):
+    """Inscription publique. Le rôle est fixé à 'utilisateur' pour tous les auto-inscriptions."""
+    payload = {
+        "username": user.username,
+        "password": user.password,
+        "role": "utilisateur"  # Rôle forcé : impossible d'élever ses privilèges via cet endpoint
+    }
+    try:
+        response = requests.post(f"{AUTH_SERVICE_URL}/register", json=payload, timeout=2.5)
+        if response.status_code == 200:
+            send_audit_log("Gateway", "USER_REGISTERED", "INFO", f"New user self-registered: {user.username}")
+            return {"status": "success", "message": f"Compte créé avec succès. Vous pouvez maintenant vous connecter."}
+        raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Erreur lors de l'inscription"))
+    except requests.exceptions.RequestException as e:
+        logger.error(f"AuthService unavailable during register: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Le service d'authentification est actuellement inaccessible."

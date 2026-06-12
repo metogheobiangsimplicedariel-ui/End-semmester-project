@@ -219,6 +219,16 @@ body {
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
+.auth-switch-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+.auth-switch-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
 
 /* Layout de l'application principale */
 .app-layout {

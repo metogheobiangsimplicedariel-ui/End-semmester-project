@@ -50,20 +50,74 @@ document.addEventListener("DOMContentLoaded", () => {
         let icon = "fa-circle-check";
         if (type === "warning") icon = "fa-triangle-exclamation";
         if (type === "error") icon = "fa-circle-xmark";
-        
+
         toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
         container.appendChild(toast);
-        
+
         // Force reflow
         toast.offsetHeight;
-        
+
         setTimeout(() => toast.classList.add("show"), 10);
-        
+
         setTimeout(() => {
             toast.classList.remove("show");
             setTimeout(() => toast.remove(), 300);
         }, 3500);
     }
+
+    // --- Bascule entre formulaire Connexion et Inscription ---
+    const loginCard = document.getElementById("login-card");
+    const registerCard = document.getElementById("register-card");
+    const showRegisterLink = document.getElementById("show-register-link");
+    const showLoginLink = document.getElementById("show-login-link");
+
+    showRegisterLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        loginCard.classList.add("hidden");
+        registerCard.classList.remove("hidden");
+    });
+
+    showLoginLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        registerCard.classList.add("hidden");
+        loginCard.classList.remove("hidden");
+    });
+
+    // --- Inscription via le formulaire web ---
+    const registerForm = document.getElementById("register-form");
+    registerForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("reg-username").value.trim();
+        const password = document.getElementById("reg-password").value;
+        const passwordConfirm = document.getElementById("reg-password-confirm").value;
+
+        if (password !== passwordConfirm) {
+            showToast("Les mots de passe ne correspondent pas.", "error");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || "Erreur lors de l'inscription");
+            }
+
+            showToast("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
+            registerForm.reset();
+            // Basculer automatiquement vers la page de connexion
+            registerCard.classList.add("hidden");
+            loginCard.classList.remove("hidden");
+            document.getElementById("username").value = username;
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
 
     // --- Gestion de la session ---
     function checkSession() {

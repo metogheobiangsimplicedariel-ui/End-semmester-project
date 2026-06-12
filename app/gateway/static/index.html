@@ -17,9 +17,11 @@
     <!-- Système de notifications -->
     <div id="toast-container"></div>
 
-    <!-- Écran de connexion (Glassmorphism) -->
+    <!-- Écran de connexion / inscription (Glassmorphism) -->
     <div id="login-container" class="login-wrapper">
-        <div class="login-card">
+
+        <!-- Carte Connexion -->
+        <div id="login-card" class="login-card">
             <div class="login-header">
                 <i class="fa-solid fa-shield-halved brand-logo"></i>
                 <h2>PhishShield</h2>
@@ -39,9 +41,39 @@
                 </button>
             </form>
             <div class="login-footer">
-                <p><i class="fa-solid fa-info-circle"></i> Utilisateurs démo : <strong>admin</strong> (admin123) / <strong>analyst</strong> (analyst123)</p>
+                <p>Pas encore de compte ? <a href="#" id="show-register-link" class="auth-switch-link">Créer un compte</a></p>
             </div>
         </div>
+
+        <!-- Carte Inscription -->
+        <div id="register-card" class="login-card hidden">
+            <div class="login-header">
+                <i class="fa-solid fa-user-plus brand-logo"></i>
+                <h2>Créer un compte</h2>
+                <p>Rejoignez la plateforme PhishShield</p>
+            </div>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="reg-username"><i class="fa-solid fa-user"></i> Nom d'utilisateur</label>
+                    <input type="text" id="reg-username" required placeholder="min. 3 caractères" minlength="3" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password"><i class="fa-solid fa-lock"></i> Mot de passe</label>
+                    <input type="password" id="reg-password" required placeholder="min. 6 caractères" minlength="6" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password-confirm"><i class="fa-solid fa-lock"></i> Confirmer le mot de passe</label>
+                    <input type="password" id="reg-password-confirm" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    Créer mon compte <i class="fa-solid fa-user-check"></i>
+                </button>
+            </form>
+            <div class="login-footer">
+                <p>Déjà un compte ? <a href="#" id="show-login-link" class="auth-switch-link">Se connecter</a></p>
+            </div>
+        </div>
+
     </div>
 
     <!-- Tableau de bord Principal -->

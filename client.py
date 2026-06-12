@@ -12,6 +12,30 @@ def print_banner():
     print("   PhishShield CLI - Détection distribuée de Phishing   ")
     print("=" * 60)
 
+def register():
+    print("\n--- Créer un nouveau compte ---")
+    username = input("Choisissez un nom d'utilisateur (min. 3 caractères) : ").strip()
+    password = input("Choisissez un mot de passe (min. 6 caractères) : ")
+    password_confirm = input("Confirmez le mot de passe : ")
+
+    if password != password_confirm:
+        print("[-] Les mots de passe ne correspondent pas.")
+        return False
+
+    try:
+        response = requests.post(f"{API_URL}/auth/register", json={
+            "username": username,
+            "password": password
+        })
+        if response.status_code == 201:
+            print(f"\n[+] {response.json().get('message', 'Compte créé avec succès !')}")
+            return True
+        else:
+            print(f"[-] Erreur : {response.json().get('detail', 'Inscription impossible')}")
+    except Exception as e:
+        print(f"[-] Erreur de connexion au serveur : {str(e)}")
+    return False
+
 def login():
     global session_token, current_user, current_role
     print("\n--- Connexion à la plateforme ---")
@@ -197,22 +221,41 @@ def view_audit_logs():
 
 def main():
     print_banner()
-    if not login():
-        return
-        
+
+    # Menu d'accueil : connexion ou inscription
+    while True:
+        print("\n=== Bienvenue sur PhishShield ===")
+        print("1. Se connecter")
+        print("2. Créer un compte")
+        print("0. Quitter")
+        choice = input("Votre choix : ").strip()
+
+        if choice == "1":
+            if login():
+                break
+        elif choice == "2":
+            if register():
+                print("[*] Vous pouvez maintenant vous connecter.")
+        elif choice == "0":
+            print("\nAu revoir !")
+            return
+        else:
+            print("[-] Choix invalide.")
+
+    # Menu principal après connexion
     while True:
         print("\n=== Menu Principal ===")
         print("1. Soumettre un e-mail suspect pour analyse")
         print("2. Consulter la liste des signalements")
         print("3. Inspecter les détails d'un signalement")
-        
+
         if current_role == "administrateur":
             print("4. Consulter les journaux d'audit (Admin)")
-            
+
         print("0. Quitter")
-        
+
         choice = input("Votre choix : ").strip()
-        
+
         if choice == "1":
             submit_email()
         elif choice == "2":

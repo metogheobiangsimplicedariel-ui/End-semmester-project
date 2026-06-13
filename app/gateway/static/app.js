@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userDisplayName = document.getElementById("user-display-name");
     const userDisplayRole = document.getElementById("user-display-role");
     const navAuditLogs = document.getElementById("nav-audit-logs");
+    const navDashboard = document.getElementById("nav-dashboard");
     const btnLogout = document.getElementById("btn-logout");
 
     // Stat numbers
@@ -133,10 +134,33 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 navAuditLogs.classList.add("hidden");
             }
+
+            // Pour les utilisateurs normaux, masquer la "Vue d'ensemble" et forcer l'onglet de soumission par défaut
+            if (currentUser.role === "utilisateur") {
+                navDashboard.classList.add("hidden");
+                // Activer l'onglet soumission par défaut
+                navItems.forEach(nav => nav.classList.remove("active"));
+                document.querySelector('[data-tab="submission-tab"]').classList.add("active");
+                tabPanels.forEach(panel => panel.classList.remove("active"));
+                document.getElementById("submission-tab").classList.add("active");
+                tabTitle.textContent = "Analyser un e-mail";
+                tabSubtitle.textContent = "Soumission sécurisée d'un signalement suspect";
+            } else {
+                navDashboard.classList.remove("hidden");
+                // Activer l'onglet vue d'ensemble par défaut pour les analystes/admins
+                navItems.forEach(nav => nav.classList.remove("active"));
+                navDashboard.classList.add("active");
+                tabPanels.forEach(panel => panel.classList.remove("active"));
+                document.getElementById("dashboard-tab").classList.add("active");
+                tabTitle.textContent = "Vue d'ensemble";
+                tabSubtitle.textContent = "Tableau de bord de qualification et de monitoring";
+            }
             
             // Initialiser les données de la vue active
             fetchHealthCheck();
-            fetchDashboardData();
+            if (currentUser.role !== "utilisateur") {
+                fetchDashboardData();
+            }
             fetchHistoryData();
         } else {
             loginContainer.classList.remove("hidden");
@@ -240,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 updateHealthBadge(healthAudit, data.audit_service);
             }
         } catch (e) {
-            logger.error(e);
+            console.error(e);
         }
     }
 
@@ -500,9 +524,52 @@ document.addEventListener("DOMContentLoaded", () => {
                     <h5 style="font-weight:600; margin-bottom:5px;">Contenu de l'e-mail :</h5>
                     <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:8px; max-height:200px; overflow-y:auto; font-family:monospace; font-size:0.85rem; white-space:pre-wrap;">${escapeHtml(data.content)}</div>
                 </div>
+                <div id="judgement-section-${data.id}" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <h5 style="font-weight:600; margin-bottom:10px;">Jugement de l'analyste (2nde vérification) :</h5>
+                    ${data.manual_judgement 
+                        ? `<span class="badge ${data.manual_judgement.includes('Phishing') ? 'badge-danger' : 'badge-success'}" style="font-size: 0.95rem; padding: 6px 12px;">${escapeHtml(data.manual_judgement)}</span>`
+                        : (currentUser.role !== "utilisateur" 
+                            ? `<div style="display:flex; gap:10px;">
+                                <button class="btn btn-secondary btn-judgement" data-id="${data.id}" data-judgement="Phishing Confirmé" style="color:var(--danger); border-color:var(--danger);">Phishing Confirmé</button>
+                                <button class="btn btn-secondary btn-judgement" data-id="${data.id}" data-judgement="Faux Positif" style="color:var(--success); border-color:var(--success);">Faux Positif</button>
+                               </div>`
+                            : `<p style="color:var(--text-secondary); font-size:0.85rem; font-style:italic;">En attente de vérification manuelle...</p>`)
+                    }
+                </div>
             `;
 
             detailModal.classList.remove("hidden");
+            
+            // Attacher les events sur les boutons de jugement
+            const judgementBtns = modalContent.querySelectorAll('.btn-judgement');
+            judgementBtns.forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const subId = e.target.getAttribute('data-id');
+                    const judgement = e.target.getAttribute('data-judgement');
+                    
+                    try {
+                        const jRes = await fetch(`${API_BASE}/submissions/${subId}/judgement`, {
+                            method: "POST",
+                            headers: { 
+                                "Authorization": `Bearer ${currentUser.token}`,
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ judgement })
+                        });
+                        if (jRes.ok) {
+                            showToast(`Jugement enregistré : ${judgement}`);
+                            showSubmissionDetail(subId); // Refresh modal
+                            fetchDashboardData(); // Refresh list to get updated data if needed
+                        } else {
+                            const err = await jRes.json();
+                            showToast(err.detail || "Erreur lors de l'enregistrement", "error");
+                        }
+                    } catch (error) {
+                        showToast(error.message, "error");
+                    }
+                });
+            });
+            
         } catch (error) {
             showToast("Erreur lors du chargement des détails", "error");
         }

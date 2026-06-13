@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,8 +12,9 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style personnalisé -->
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
+
 <body>
     <!-- Système de notifications -->
     <div id="toast-container"></div>
@@ -41,7 +43,8 @@
                 </button>
             </form>
             <div class="login-footer">
-                <p>Pas encore de compte ? <a href="#" id="show-register-link" class="auth-switch-link">Créer un compte</a></p>
+                <p>Pas encore de compte ? <a href="#" id="show-register-link" class="auth-switch-link">Créer un
+                        compte</a></p>
             </div>
         </div>
 
@@ -55,11 +58,13 @@
             <form id="register-form">
                 <div class="form-group">
                     <label for="reg-username"><i class="fa-solid fa-user"></i> Nom d'utilisateur</label>
-                    <input type="text" id="reg-username" required placeholder="min. 3 caractères" minlength="3" maxlength="50">
+                    <input type="text" id="reg-username" required placeholder="min. 3 caractères" minlength="3"
+                        maxlength="50">
                 </div>
                 <div class="form-group">
                     <label for="reg-password"><i class="fa-solid fa-lock"></i> Mot de passe</label>
-                    <input type="password" id="reg-password" required placeholder="min. 6 caractères" minlength="6" maxlength="100">
+                    <input type="password" id="reg-password" required placeholder="min. 6 caractères" minlength="6"
+                        maxlength="100">
                 </div>
                 <div class="form-group">
                     <label for="reg-password-confirm"><i class="fa-solid fa-lock"></i> Confirmer le mot de passe</label>
@@ -84,7 +89,7 @@
                 <i class="fa-solid fa-shield-halved logo-icon"></i>
                 <span class="logo-text">PhishShield</span>
             </div>
-            
+
             <div class="user-profile-widget">
                 <div class="avatar">
                     <i class="fa-solid fa-user-shield"></i>
@@ -96,7 +101,7 @@
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item active" data-tab="dashboard-tab">
+                <button id="nav-dashboard" class="nav-item active" data-tab="dashboard-tab">
                     <i class="fa-solid fa-chart-pie"></i> Vue d'ensemble
                 </button>
                 <button class="nav-item" data-tab="submission-tab">
@@ -133,7 +138,7 @@
 
             <!-- TABS CONTENT -->
             <div class="tab-panels">
-                
+
                 <!-- 1. Vue d'ensemble -->
                 <div id="dashboard-tab" class="tab-panel active">
                     <!-- Stats Grid -->
@@ -224,15 +229,18 @@
                                 <form id="submission-form">
                                     <div class="form-group">
                                         <label for="sender-input">Expéditeur déclaré (From)</label>
-                                        <input type="text" id="sender-input" required placeholder="ex: support-security@paypal.com">
+                                        <input type="text" id="sender-input" required
+                                            placeholder="ex: support-security@paypal.com">
                                     </div>
                                     <div class="form-group">
                                         <label for="subject-input">Objet de l'e-mail</label>
-                                        <input type="text" id="subject-input" required placeholder="ex: Urgent : Action requise sur votre compte">
+                                        <input type="text" id="subject-input" required
+                                            placeholder="ex: Urgent : Action requise sur votre compte">
                                     </div>
                                     <div class="form-group">
                                         <label for="urls-input">Liens détectés (URLs, une par ligne)</label>
-                                        <textarea id="urls-input" rows="3" placeholder="ex: http://192.168.1.100/login&#10;https://verification-portal-paypal.com"></textarea>
+                                        <textarea id="urls-input" rows="3"
+                                            placeholder="ex: http://192.168.1.100/login&#10;https://verification-portal-paypal.com"></textarea>
                                     </div>
                                     <div class="form-group row-checkbox">
                                         <input type="checkbox" id="attachment-input">
@@ -240,10 +248,11 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="content-input">Contenu textuel ou extrait</label>
-                                        <textarea id="content-input" rows="8" required placeholder="Collez le texte brut de l'e-mail ici..."></textarea>
+                                        <textarea id="content-input" rows="8" required
+                                            placeholder="Collez le texte brut de l'e-mail ici..."></textarea>
                                     </div>
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="fa-solid fa-magnifying-glass"></i> Lancer l'analyse distribuée
+                                        <i class="fa-solid fa-magnifying-glass"></i> Lancer l'analyse
                                     </button>
                                 </form>
                             </div>
@@ -265,16 +274,18 @@
                                         <span class="score-total">/100</span>
                                         <div id="result-badge" class="result-risk-badge">FAIBLE</div>
                                     </div>
-                                    
+
                                     <div class="result-details mt-4">
-                                        <h4><i class="fa-solid fa-magnifying-glass-chart"></i> Indicateurs de phishing détectés :</h4>
+                                        <h4><i class="fa-solid fa-magnifying-glass-chart"></i> Indicateurs de phishing
+                                            détectés :</h4>
                                         <ul id="result-justifications" class="justifications-list">
                                             <!-- Rempli par JS -->
                                         </ul>
                                     </div>
-                                    
+
                                     <div id="fallback-alert" class="fallback-note hidden">
-                                        <i class="fa-solid fa-triangle-exclamation"></i> Mode Secours Activé (Analyse locale)
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Mode Secours Activé (Analyse
+                                        locale)
                                     </div>
                                 </div>
                             </div>
@@ -288,14 +299,16 @@
                         <div class="panel-header search-bar-container">
                             <h3><i class="fa-solid fa-folder-open"></i> Historique des signalements</h3>
                             <div class="filters-row">
-                                <input type="text" id="search-keyword" placeholder="Rechercher par mot-clé, expéditeur...">
+                                <input type="text" id="search-keyword"
+                                    placeholder="Rechercher par mot-clé, expéditeur...">
                                 <select id="filter-risk">
                                     <option value="">Tous les risques</option>
                                     <option value="FAIBLE">Faible</option>
                                     <option value="MOYEN">Moyen</option>
                                     <option value="ÉLEVÉ">Élevé</option>
                                 </select>
-                                <button id="btn-apply-filters" class="btn btn-secondary"><i class="fa-solid fa-filter"></i> Filtrer</button>
+                                <button id="btn-apply-filters" class="btn btn-secondary"><i
+                                        class="fa-solid fa-filter"></i> Filtrer</button>
                             </div>
                         </div>
                         <div class="panel-body">
@@ -326,7 +339,8 @@
                     <div class="panel">
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-receipt"></i> Journaux d'audit de sécurité (AuditService)</h3>
-                            <button id="btn-refresh-audit" class="btn btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Rafraîchir</button>
+                            <button id="btn-refresh-audit" class="btn btn-secondary"><i
+                                    class="fa-solid fa-arrows-rotate"></i> Rafraîchir</button>
                         </div>
                         <div class="panel-body">
                             <div class="table-responsive">
@@ -367,7 +381,8 @@
         </div>
     </div>
 
-    <!-- Script principal -->
-    <script src="/static/app.js"></script>
+    <!-- Scripts -->
+    <script src="/static/app.js?v=3"></script>
 </body>
+
 </html>

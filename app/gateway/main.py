@@ -62,6 +62,9 @@ class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6, max_length=100)
 
+class JudgementRequest(BaseModel):
+    judgement: str = Field(..., max_length=50, description="Jugement manuel (ex: Phishing Confirmé, Faux Positif)")
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -77,7 +80,8 @@ def init_db():
             user_submitted TEXT NOT NULL,
             score INTEGER NOT NULL,
             risk_level TEXT NOT NULL,
-            justifications TEXT NOT NULL
+            justifications TEXT NOT NULL,
+            manual_judgement TEXT
         )
     """)
     conn.commit()
@@ -292,6 +296,11 @@ async def list_submissions(
     query = "SELECT * FROM submissions WHERE 1=1"
     params = []
     
+    # Cloisonnement strict des données : les utilisateurs simples ne voient que leurs propres signalements
+    if user.get("role") not in ["administrateur", "analyste"]:
+        query += " AND user_submitted = ?"
+        params.append(user.get("username"))
+        
     if sender:
         query += " AND sender LIKE ?"
         params.append(f"%{sender}%")
@@ -330,9 +339,33 @@ async def get_submission(sub_id: int, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Signalement introuvable")
         
     d = dict(row)
+    
+    # Vérification d'autorisation (RBAC et propriété)
+    if user.get("role") not in ["administrateur", "analyste"] and d["user_submitted"] != user.get("username"):
+        raise HTTPException(status_code=403, detail="Accès refusé à ce signalement")
+        
     d["urls"] = json.loads(d["urls"])
     d["justifications"] = json.loads(d["justifications"])
     return d
+
+@app.post("/api/submissions/{sub_id}/judgement")
+async def add_manual_judgement(sub_id: int, req: JudgementRequest, user: dict = Depends(get_current_user)):
+    if user.get("role") not in ["administrateur", "analyste"]:
+        raise HTTPException(status_code=403, detail="Seul un analyste ou administrateur peut émettre un jugement")
+        
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM submissions WHERE id = ?", (sub_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Signalement introuvable")
+        
+    cursor.execute("UPDATE submissions SET manual_judgement = ? WHERE id = ?", (req.judgement, sub_id))
+    conn.commit()
+    conn.close()
+    
+    send_audit_log("Gateway", "MANUAL_JUDGEMENT_ADDED", "INFO", f"User {user.get('username')} set judgement '{req.judgement}' on sub_id {sub_id}")
+    return {"status": "success", "judgement": req.judgement}
 
 @app.get("/api/audit/logs")
 async def get_audit_logs(limit: int = 50, user: dict = Depends(get_current_user)):

@@ -2,7 +2,7 @@
 
 PhishShield est une mini application distribuée et sécurisée développée en Python pour centraliser, analyser et qualifier les signalements d'e-mails suspectés de phishing.
 
-Ce projet met en œuvre les notions clés des applications réparties et de la cybersécurité (sécurité by design, authentification par jetons, journalisation d'audit sécurisée, et mécanismes de résilience tels que les disjoncteurs et les limites de débit).
+Ce projet met en oeuvre les notions clés des applications réparties et de la cybersécurité (sécurité by design, authentification par jetons, journalisation d'audit sécurisée, mécanismes de résilience tels que les disjoncteurs et les limites de débit, et gestion des rôles utilisateurs).
 
 ---
 
@@ -14,11 +14,11 @@ Le système est découpé en 4 services communicants et un client :
 /
 ├── app/
 │   ├── gateway/                  # SubmissionService / API Gateway (Port 8000)
-│   │   ├── main.py               # Serveur FastAPI principal + Routes API
+│   │   ├── main.py               # Serveur FastAPI principal + Routes API + Inscription publique
 │   │   ├── resilience.py         # CircuitBreaker & RateLimiter
-│   │   └── static/               # Interface Web Premium (HTML, CSS, JS)
+│   │   └── static/               # Interface Web (HTML, CSS, JS) avec formulaire d'inscription
 │   ├── auth/                     # AuthService (Port 8001 - FastAPI)
-│   │   ├── main.py               # Gestion des tokens JWT signés et utilisateurs
+│   │   ├── main.py               # Gestion des tokens signés, utilisateurs et rôles
 │   │   └── auth.db               # Base SQLite locale des identifiants (hachés)
 │   ├── analysis/                 # AnalysisService (Port 8002 - gRPC)
 │   │   ├── main.py               # Serveur gRPC
@@ -30,7 +30,7 @@ Le système est découpé en 4 services communicants et un client :
 │   │   └── audit.db              # Base SQLite locale des événements de sécurité
 │   └── shared/
 │       └── audit_client.py       # Client d'audit partagé importé par tous les services
-├── client.py                     # Client interactif en ligne de commande (CLI)
+├── client.py                     # Client interactif en ligne de commande (CLI) avec inscription
 ├── demo_submissions.py           # Script pour injecter des e-mails d'exemples
 ├── run_all.py                    # Script d'orchestration pour lancer tous les services
 └── README.md                     # Cette documentation
@@ -38,14 +38,29 @@ Le système est découpé en 4 services communicants et un client :
 
 ---
 
+## Gestion des Rôles Utilisateurs
+
+La plateforme supporte trois niveaux de rôles :
+
+| Rôle | Comment l'obtenir | Accès |
+| :--- | :--- | :--- |
+| `utilisateur` | Auto-inscription (Web UI ou CLI) | Soumission et consultation des signalements |
+| `analyste` | Créé par un administrateur | Mêmes droits que `utilisateur` |
+| `administrateur` | Pré-configuré au démarrage | Accès complet + Journaux d'audit sécurité |
+
+Comptes pré-remplis au démarrage : `admin` / `admin123` et `analyst` / `analyst123`.
+
+---
+
 ## Fonctionnalités de Sécurité & Résilience (Security by Design)
 
 1. **Aucun mot de passe en clair** : Les identifiants sont salés et hachés via `PBKDF2-HMAC-SHA256` dans `AuthService`.
 2. **Tokens signés cryptographiquement** : Les sessions sont gérées par des jetons HMAC-SHA256 auto-suffisants et limités dans le temps.
-3. **Journalisation d'audit sécurisée** : Les événements critiques (échecs de connexion, scores élevés, alertes) sont centralisés par l'**AuditService**. Les tokens et mots de passe ne figurent jamais dans les journaux.
+3. **Journalisation d'audit sécurisée** : Les événements critiques (échecs de connexion, inscriptions, scores élevés, alertes) sont centralisés par l'**AuditService**. Les tokens et mots de passe ne figurent jamais dans les journaux.
 4. **Rate Limiting** : Protection contre l'abus de soumissions et brute-force (mécanisme de fenêtre glissante implémenté dans l'API Gateway).
 5. **Circuit Breaker (Disjoncteur)** : Si le service gRPC d'analyse ou d'authentification tombe en panne, l'API Gateway coupe temporairement les requêtes pour éviter d'attendre les timeouts réseau.
 6. **Moteur local de secours (Fallback)** : En cas d'indisponibilité de l'**AnalysisService** (gRPC), la Gateway bascule de manière transparente sur son moteur heuristique local intégré pour continuer à rendre service (mode dégradé).
+7. **Rôle forcé à l'inscription** : L'endpoint public `/api/auth/register` attribue systématiquement le rôle `utilisateur`. Il est impossible de s'auto-inscrire avec un rôle privilégié.
 
 ---
 
@@ -72,9 +87,11 @@ Dans une autre console, vous pouvez injecter un jeu d'e-mails de démonstration 
 ```
 
 ### 5. Utiliser le Tableau de bord Web
-Une interface utilisateur web premium et réactive est disponible. 
+Une interface utilisateur web premium et réactive est disponible.
 - Ouvrez votre navigateur sur : **[http://127.0.0.1:8000](http://127.0.0.1:8000)**
-- Connectez-vous avec l'un des comptes pré-remplis :
+- Pour créer un nouveau compte : cliquez sur **"Créer un compte"** sur la page de connexion, remplissez le formulaire et validez.
+- Connectez-vous avec l'un des comptes :
+  - **Nouveau compte** : via le formulaire d'inscription (rôle `utilisateur`)
   - **Analyste** : `analyst` / `analyst123` (Accès à la soumission et à l'historique)
   - **Administrateur** : `admin` / `admin123` (Accès complet, y compris les **Journaux d'audit**)
 
@@ -83,3 +100,4 @@ Vous pouvez également interagir avec la plateforme via le client interactif en 
 ```bash
 .venv\Scripts\python client.py
 ```
+Au démarrage, un menu vous propose de **vous connecter** ou de **créer un compte**.

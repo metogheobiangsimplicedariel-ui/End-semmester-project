@@ -14,6 +14,7 @@ Le projet **PhishShield** est une plateforme distribuée de qualification et de 
 - Intégration de mécanismes de sécurité avancés (hachage, signature de tokens, contrôle d'accès basé sur les rôles).
 - Conception de mécanismes de résilience (disjoncteurs, limites de débit, repli local en mode dégradé).
 - Création d'une interface web interactive (UI Premium) et d'un client en ligne de commande (CLI).
+- Gestion autonome des comptes utilisateurs avec auto-inscription sécurisée depuis la Web UI et le CLI.
 
 ---
 
@@ -29,6 +30,11 @@ sequenceDiagram
     participant Auth as AuthService (8001)
     participant Analysis as AnalysisService (8002)
     participant Audit as AuditService (8003)
+
+    Client->>GW: POST /api/auth/register (Inscription publique)
+    GW->>Auth: POST /register (rôle forcé : utilisateur)
+    Auth-->>GW: Compte créé
+    GW->>Audit: POST /log (USER_REGISTERED)
 
     Client->>GW: POST /api/submissions (avec Token Bearer)
     GW->>Auth: POST /validate (Vérifier le Token)
@@ -50,22 +56,40 @@ sequenceDiagram
 
 ---
 
-## 3. Modélisation des Menaces et Contre-mesures (STRIDE)
+## 3. Gestion des Rôles et Auto-inscription
+
+La plateforme implémente un système RBAC (Role-Based Access Control) à **trois niveaux** :
+
+| Rôle | Création | Capacités |
+| :--- | :--- | :--- |
+| `utilisateur` | Auto-inscription (Web UI ou CLI) | Soumettre et consulter les signalements |
+| `analyste` | Créé par un administrateur | Mêmes droits que `utilisateur` |
+| `administrateur` | Pré-configuré au démarrage (`admin`) | Accès complet + Journaux d'audit |
+
+### Endpoint d'auto-inscription
+- **Route** : `POST /api/auth/register` (public, sans authentification)
+- **Validation** : Pydantic enforce un nom d'utilisateur de 3+ caractères et un mot de passe de 6+ caractères.
+- **Rôle forcé** : Le rôle est systématiquement fixé à `utilisateur` dans le code de la Gateway. Il est impossible pour un utilisateur d'auto-s'inscrire avec un rôle élevé.
+- **Accès** : Disponible depuis la **Web UI** (lien "Créer un compte" sur la page de connexion) et depuis le **CLI** (menu d'accueil, option 2).
+
+---
+
+## 4. Modélisation des Menaces et Contre-mesures (STRIDE)
 
 Pour répondre aux exigences de cybersécurité par design, nous avons rédigé la matrice des menaces suivantes selon le modèle STRIDE :
 
 | Catégorie | Menace Identifiée | Impact | Contre-mesures appliquées |
 | :--- | :--- | :--- | :--- |
-| **Spoofing** (Usurpation) | Un attaquant tente de usurper l'identité d'un analyste ou d'un administrateur. | Accès non autorisé aux signalements et aux logs de sécurité. | Authentification par jeton HMAC-SHA256 signé cryptographiquement avec clé secrète serveur. |
+| **Spoofing** (Usurpation) | Un attaquant tente d'usurper l'identité d'un analyste ou d'un administrateur. | Accès non autorisé aux signalements et aux logs de sécurité. | Authentification par jeton HMAC-SHA256 signé cryptographiquement avec clé secrète serveur. |
 | **Tampering** (Altération) | Modification des requêtes de soumission ou injection de payloads malveillants. | Corruption de la base de données ou contournement de l'analyse. | Validation stricte des types et longueurs via **Pydantic** côté serveur. Limitation de la taille des e-mails à 10 Ko. |
 | **Repudiation** (Répudiation) | Un utilisateur effectue des actions sensibles (ex. consultation de logs d'audit) et le nie. | Perte de traçabilité lors d'un incident de sécurité. | **AuditService** dédié et indépendant qui logue systématiquement toutes les actions sensibles avec horodatage et ID utilisateur. |
 | **Information Disclosure** (Fuite d'info) | Fuite d'informations d'erreur internes (stack traces) au client ou interception de mots de passe. | Un attaquant peut comprendre l'architecture interne ou intercepter des mots de passe. | Hachage sécurisé `PBKDF2-HMAC-SHA256` avec sel unique. Messages d'erreur génériques renvoyés par l'API Gateway. Mots de passe et tokens complets masqués des logs. |
 | **Denial of Service** (Déni de Service) | Brute-force ou inondation du serveur de soumission par des requêtes en boucle. | Épuisement des ressources système et indisponibilité. | Middleware de **Rate Limiting** par adresse IP (fenêtre glissante in-memory). |
-| **Elevation of Privilege** (Élévation de privilèges) | Un analyste tente d'appeler l'API de consultation des logs d'audit. | Fuite de données d'audit de sécurité confidentielles. | Contrôle de rôle strict (RBAC) au niveau de l'API Gateway : rejet immédiat et log d'alerte critique si le rôle n'est pas `administrateur`. |
+| **Elevation of Privilege** (Élévation de privilèges) | Un utilisateur tente de s'auto-inscrire avec le rôle `administrateur` ou `analyste`, ou d'appeler l'API d'audit. | Accès non autorisé aux journaux d'audit ou aux fonctions d'administration. | Le rôle est **forcé à `utilisateur`** dans l'endpoint public `/api/auth/register`. Contrôle de rôle strict (RBAC) sur les routes sensibles : rejet immédiat et log d'alerte critique. |
 
 ---
 
-## 4. Résilience et Tolérance aux Pannes
+## 5. Résilience et Tolérance aux Pannes
 
 ### 1. Circuit Breaker (Disjoncteur)
 Les communications avec `AuthService` et `AnalysisService` sont enveloppées dans des objets `CircuitBreaker`. Si un nombre de pannes consécutives (3 par défaut) est atteint, le disjoncteur passe à l'état **OPEN**. Les requêtes futures échouent instantanément pour éviter de monopoliser les threads réseau (fail-fast). Après 10 secondes, il tente une reconnexion (HALF-OPEN).
@@ -75,16 +99,17 @@ Si l'**AnalysisService** gRPC est inaccessible, la Gateway ne renvoie pas d'erre
 
 ---
 
-## 5. Guide de Démonstration
+## 6. Guide de Démonstration
 
 Pour valider le fonctionnement de la plateforme en soutenance :
 1. **Démarrage global** : `python run_all.py` (vérifier que les 4 services s'initialisent correctement).
 2. **Peuplement de test** : Lancer `python demo_submissions.py` pour simuler des signalements variés.
 3. **Accès Web** :
    - Naviguer sur `http://127.0.0.1:8000`.
-   - Se connecter en tant que `analyst` pour inspecter les e-mails soumis.
-   - Tenter d'accéder aux logs d'audit (bouton caché ou bloqué pour ce rôle).
-   - Se déconnecter, puis se connecter en tant que `admin` pour accéder à l'onglet **Journaux d'audit**.
+   - Créer un nouveau compte via le lien **"Créer un compte"** sur la page de connexion.
+   - Se connecter avec le nouveau compte et soumettre un e-mail suspect.
+   - Se déconnecter, puis se connecter en tant que `analyst` pour l'historique complet.
+   - Se connecter en tant que `admin` pour accéder à l'onglet **Journaux d'audit** et vérifier que l'inscription a bien été tracée.
 4. **Test de Résilience** :
    - Stopper le script `app/analysis/main.py` (gRPC).
    - Soumettre un e-mail suspect depuis le navigateur.

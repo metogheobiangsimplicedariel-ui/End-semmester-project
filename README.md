@@ -71,7 +71,26 @@ Assurez-vous d'avoir Python 3.11+ installé.
 
 ### 2. Configuration de l'environnement virtuel
 Le projet s'appuie sur un environnement virtuel local (`.venv`) pour isoler ses dépendances.
-Les dépendances nécessaires ont déjà été installées (`fastapi`, `uvicorn`, `requests`, `grpcio`, `grpcio-tools`).
+
+**Créer l'environnement virtuel :**
+```bash
+python -m venv .venv
+```
+
+**Activer l'environnement virtuel :**
+- Sur Windows :
+  ```bash
+  .\.venv\Scripts\activate
+  ```
+- Sur macOS/Linux :
+  ```bash
+  source .venv/bin/activate
+  ```
+
+**Installer les dépendances :**
+```bash
+pip install fastapi uvicorn requests grpcio grpcio-tools
+```
 
 ### 3. Lancer la plateforme
 Pour démarrer tous les services simultanément sur leurs ports respectifs, exécutez le script d'orchestration :

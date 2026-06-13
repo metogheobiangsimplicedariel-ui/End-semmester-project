@@ -136,9 +136,53 @@ Pour répondre aux exigences de cybersécurité par design, nous avons rédigé 
 | **Denial of Service** (Déni de Service) | Brute-force ou inondation du serveur de soumission par des requêtes en boucle. | Épuisement des ressources système et indisponibilité. | Middleware de **Rate Limiting** par adresse IP (fenêtre glissante in-memory). |
 | **Elevation of Privilege** (Élévation de privilèges) | Un utilisateur tente de s'auto-inscrire avec le rôle `administrateur` ou `analyste`, ou d'appeler l'API d'audit. | Accès non autorisé aux journaux d'audit ou aux fonctions d'administration. | Le rôle est **forcé à `utilisateur`** dans l'endpoint public `/api/auth/register`. Contrôle de rôle strict (RBAC) sur les routes sensibles : rejet immédiat et log d'alerte critique. |
 
+### 4.2. Conformité stricte aux exigences de cybersécurité du projet
+
+Pour répondre de manière exhaustive à la grille d'évaluation, voici comment chaque point a été adressé techniquement :
+
+1. **Ne jamais stocker ni afficher les mots de passe en clair** : 
+   - *Stockage* : Les mots de passe sont salés (`os.urandom`) et hachés via `hashlib.pbkdf2_hmac` avec SHA-256 dans `AuthService`.
+   - *Affichage* : Les formulaires web utilisent `type="password"` et le CLI masque la saisie (librairie `getpass` native ou substitution de caractères).
+2. **Ne pas journaliser les tokens complets** : 
+   - L'AuditService et les fonctions de logging ne tracent **jamais** la chaîne JWT complète. Seul le nom d'utilisateur (extrait après validation) et l'action sont journalisés (ex: `User admin connected`).
+3. **Valider toutes les entrées côté serveur** : 
+   - L'API Gateway utilise **Pydantic** (`BaseModel`, `Field`) pour imposer un typage fort, des longueurs minimales et maximales avant que la requête n'atteigne la logique métier.
+4. **Contrôler les rôles et les permissions** : 
+   - Implémentation complète du RBAC. Les routes sensibles (comme l'audit ou l'émission de jugement) vérifient explicitement `user.get("role") in ["administrateur", "analyste"]`. En cas d'échec, une erreur HTTP 403 est renvoyée et l'incident est journalisé.
+5. **Prévoir des messages d'erreur génériques côté client** : 
+   - Pour éviter la fuite d'informations (*Information Disclosure*), les erreurs d'authentification renvoient toujours un générique *"Identifiants incorrects"* (et non "Utilisateur inconnu" ou "Mot de passe faux"). Les *stack traces* ne sont jamais exposées.
+6. **Prévoir une réflexion sur les risques de sérialisation et de désérialisation** : 
+   - Le projet n'utilise **jamais** de bibliothèques vulnérables comme `pickle` en Python (qui permet l'exécution de code arbitraire). Toute la sérialisation est faite en **JSON** pur (validé par Pydantic) pour les requêtes REST, et en **Protocol Buffers** pour gRPC, ce qui garantit que seules des données typées et prévisibles sont désérialisées.
+7. **Limiter la taille des entrées** : 
+   - Les modèles Pydantic définissent des `max_length` stricts (ex: 50 pour le pseudo, 100 pour le mot de passe, et 10 000 caractères maximum pour le contenu du message) pour prévenir les attaques de type Buffer Overflow ou l'épuisement mémoire.
+8. **Prévoir un minimum de protection contre l'abus d'appels** : 
+   - Un middleware de **Rate Limiting** (algorithme de fenêtre glissante en mémoire, développé dans `resilience.py`) bloque les adresses IP dépassant un quota défini (ex: prévenir le brute-force ou le spam de l'API d'analyse).
+9. **Documenter les menaces principales et les contre-mesures** : 
+   - Adressé par la modélisation **STRIDE** détaillée dans la section 4.1 ci-dessus.
+
 ---
 
-## 5. Résilience et Tolérance aux Pannes
+## 5. Création et Exposition des APIs
+
+La conception, la création et l'exposition des différents services reposent sur des standards modernes et performants :
+
+### 5.1. Choix du Framework : FastAPI
+Toutes les APIs REST du projet (Gateway, AuthService, AuditService) ont été développées en utilisant **FastAPI**.
+- **Performance et Asynchronisme** : FastAPI est basé sur l'asynchronisme natif de Python (`async`/`await`), ce qui permet à la Gateway de gérer de multiples requêtes de soumission sans bloquer le serveur.
+- **Validation intégrée** : Couplé à **Pydantic**, FastAPI s'assure que les charges utiles JSON respectent strictement les schémas définis (types, tailles) avant même d'exécuter la fonction, limitant drastiquement la surface d'attaque.
+- **Documentation automatique** : FastAPI génère automatiquement une documentation interactive (Swagger UI/OpenAPI) accessible sur la route `/docs` de chaque service.
+
+### 5.2. Exposition des Services
+L'application est découpée en microservices, chacun exposé sur un port dédié de la boucle locale (`127.0.0.1`) pour simuler des serveurs distincts :
+- **Serveur ASGI (Uvicorn)** : L'API Gateway, l'AuthService et l'AuditService sont exposés via **Uvicorn**, un serveur web ultra-rapide capable de traiter des requêtes HTTP concurrentes.
+- **Serveur gRPC** : L'AnalysisService n'utilise pas HTTP/REST mais est exposé en tant que serveur **gRPC** via la librairie `grpcio`. Il écoute sur le port `8002` et attend des appels RPC binaires, offrant des performances supérieures pour le transfert du contenu des e-mails.
+
+### 5.3. Sécurisation de l'Exposition (CORS)
+L'API Gateway sert de point d'entrée unique. Afin de permettre à l'interface Web (qui pourrait techniquement être hébergée sur un autre domaine) de dialoguer avec l'API, nous avons configuré un **Middleware CORS** (`CORSMiddleware`). Bien qu'autorisant `["*"]` pour la facilité de la démonstration locale, cette configuration garantit que les navigateurs modernes acceptent les requêtes asynchrones (`fetch`) issues du frontend JavaScript.
+
+---
+
+## 6. Résilience et Tolérance aux Pannes
 
 ### 1. Circuit Breaker (Disjoncteur)
 Les communications avec `AuthService` et `AnalysisService` sont enveloppées dans des objets `CircuitBreaker`. Si un nombre de pannes consécutives (3 par défaut) est atteint, le disjoncteur passe à l'état **OPEN**. Les requêtes futures échouent instantanément pour éviter de monopoliser les threads réseau (fail-fast). Après 10 secondes, il tente une reconnexion (HALF-OPEN).
@@ -148,7 +192,7 @@ Si l'**AnalysisService** gRPC est inaccessible, la Gateway ne renvoie pas d'erre
 
 ---
 
-## 6. Guide de Démonstration
+## 7. Guide de Démonstration
 
 Pour valider le fonctionnement de la plateforme en soutenance :
 1. **Démarrage global** : `python run_all.py` (vérifier que les 4 services s'initialisent correctement).

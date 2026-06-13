@@ -44,8 +44,8 @@ La plateforme supporte trois niveaux de rôles :
 
 | Rôle | Comment l'obtenir | Accès |
 | :--- | :--- | :--- |
-| `utilisateur` | Auto-inscription (Web UI ou CLI) | Soumission et consultation des signalements |
-| `analyste` | Créé par un administrateur | Mêmes droits que `utilisateur` |
+| `utilisateur` | Auto-inscription (Web UI ou CLI) | Soumission et consultation de ses propres signalements |
+| `analyste` | Créé par un administrateur | Historique complet et émission de **jugements manuels** (2nde vérification) |
 | `administrateur` | Pré-configuré au démarrage | Accès complet + Journaux d'audit sécurité |
 
 Comptes pré-remplis au démarrage : `admin` / `admin123` et `analyst` / `analyst123`.
@@ -61,6 +61,7 @@ Comptes pré-remplis au démarrage : `admin` / `admin123` et `analyst` / `analys
 5. **Circuit Breaker (Disjoncteur)** : Si le service gRPC d'analyse ou d'authentification tombe en panne, l'API Gateway coupe temporairement les requêtes pour éviter d'attendre les timeouts réseau.
 6. **Moteur local de secours (Fallback)** : En cas d'indisponibilité de l'**AnalysisService** (gRPC), la Gateway bascule de manière transparente sur son moteur heuristique local intégré pour continuer à rendre service (mode dégradé).
 7. **Rôle forcé à l'inscription** : L'endpoint public `/api/auth/register` attribue systématiquement le rôle `utilisateur`. Il est impossible de s'auto-inscrire avec un rôle privilégié.
+8. **Seconde vérification (Humain dans la boucle)** : Les analystes peuvent examiner les signalements et émettre un jugement manuel (Phishing Confirmé / Faux Positif) pour compléter la détection automatique.
 
 ---
 

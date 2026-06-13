@@ -13,14 +13,57 @@ Le projet **PhishShield** est une plateforme distribuée de qualification et de 
 - Conception d'une architecture orientée microservices (communication distribuée).
 - Intégration de mécanismes de sécurité avancés (hachage, signature de tokens, contrôle d'accès basé sur les rôles).
 - Conception de mécanismes de résilience (disjoncteurs, limites de débit, repli local en mode dégradé).
-- Création d'une interface web interactive (UI Premium) et d'un client en ligne de commande (CLI).
+- Création d'une interface web interactive (UI Premium) avec des modales scrollables et d'un client en ligne de commande (CLI).
 - Gestion autonome des comptes utilisateurs avec auto-inscription sécurisée depuis la Web UI et le CLI.
+- **Seconde vérification** : Fonctionnalité permettant aux analystes d'émettre un jugement manuel (Phishing Confirmé / Faux Positif) sur les signalements automatisés.
 
 ---
 
 ## 2. Architecture Technique et Flux d'Information
 
 Le système est composé de 4 microservices et de clients (CLI/Web). Chaque composant s'exécute dans son propre espace de processus.
+
+### Diagramme d'Architecture (Composants)
+
+```mermaid
+graph TD
+    subgraph Clients
+        Web[Interface Web]
+        CLI[Client CLI Python]
+    end
+
+    subgraph API Gateway
+        GW[Gateway Service - Port 8000<br/>FastAPI]
+        DB_Sub[(submissions.db)]
+    end
+
+    subgraph Services Distribués
+        Auth[Auth Service - Port 8001<br/>FastAPI]
+        DB_Auth[(auth.db)]
+        
+        Analysis[Analysis Service - Port 8002<br/>gRPC]
+        
+        Audit[Audit Service - Port 8003<br/>FastAPI]
+        DB_Audit[(audit.db)]
+    end
+
+    Web -->|HTTP / REST| GW
+    CLI -->|HTTP / REST| GW
+    
+    GW -->|REST| Auth
+    GW -->|gRPC| Analysis
+    GW -->|REST| Audit
+    
+    Auth -->|REST| Audit
+    Analysis -->|REST| Audit
+    
+    GW --- DB_Sub
+    Auth --- DB_Auth
+    Audit --- DB_Audit
+```
+
+### Flux d'information typique (Séquence)
+
 
 ```mermaid
 sequenceDiagram
@@ -56,7 +99,7 @@ sequenceDiagram
 
 ---
 
-## 3. Gestion des Rôles et Auto-inscription
+## 3. Gestion des Rôles, Auto-inscription et Seconde Vérification
 
 La plateforme implémente un système RBAC (Role-Based Access Control) à **trois niveaux** :
 
@@ -71,6 +114,12 @@ La plateforme implémente un système RBAC (Role-Based Access Control) à **troi
 - **Validation** : Pydantic enforce un nom d'utilisateur de 3+ caractères et un mot de passe de 6+ caractères.
 - **Rôle forcé** : Le rôle est systématiquement fixé à `utilisateur` dans le code de la Gateway. Il est impossible pour un utilisateur d'auto-s'inscrire avec un rôle élevé.
 - **Accès** : Disponible depuis la **Web UI** (lien "Créer un compte" sur la page de connexion) et depuis le **CLI** (menu d'accueil, option 2).
+
+### Processus de Seconde Vérification (Jugement Manuel)
+Afin d'ajouter une couche humaine à la détection automatisée, les utilisateurs ayant le rôle `analyste` ou `administrateur` disposent d'une fonctionnalité exclusive :
+- Lors de l'inspection d'un signalement, l'analyste peut émettre un **jugement manuel** (*Phishing Confirmé* ou *Faux Positif*).
+- Ce jugement est stocké de manière persistante (colonne `manual_judgement` dans `submissions.db`) et remplace visuellement le statut "En attente de vérification" pour l'utilisateur normal ayant soumis l'e-mail.
+- L'émission d'un jugement est strictement contrôlée côté backend et trace un log d'audit spécifique (`MANUAL_JUDGEMENT_ADDED`).
 
 ---
 
@@ -108,8 +157,10 @@ Pour valider le fonctionnement de la plateforme en soutenance :
    - Naviguer sur `http://127.0.0.1:8000`.
    - Créer un nouveau compte via le lien **"Créer un compte"** sur la page de connexion.
    - Se connecter avec le nouveau compte et soumettre un e-mail suspect.
-   - Se déconnecter, puis se connecter en tant que `analyst` pour l'historique complet.
-   - Se connecter en tant que `admin` pour accéder à l'onglet **Journaux d'audit** et vérifier que l'inscription a bien été tracée.
+   - Constater le statut "En attente de vérification manuelle...".
+   - Se déconnecter, puis se connecter en tant que `analyst` (`analyst123`).
+   - Inspecter le signalement, scroller vers le bas (UI améliorée) et cliquer sur **Phishing Confirmé** ou **Faux Positif**.
+   - Se déconnecter puis se connecter en tant que `admin` (`admin123`) pour accéder à l'onglet **Journaux d'audit** et vérifier que l'inscription et le jugement manuel ont bien été tracés.
 4. **Test de Résilience** :
    - Stopper le script `app/analysis/main.py` (gRPC).
    - Soumettre un e-mail suspect depuis le navigateur.
